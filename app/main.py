@@ -13,6 +13,7 @@ from .vector.schema import (
     CollectionInfoResponse,
     DeleteDocumentRequest,
     DeleteDocumentResponse,
+    DeleteAllDocumentsResponse,
 )
 import datetime
 
@@ -69,7 +70,7 @@ async def receive_chat(
         )
 
 
-@app.post("/api/documents", response_model=AddDocumentResponse)
+@app.post("/api/documents/add", response_model=AddDocumentResponse)
 async def add_document(
     request: AddDocumentRequest,
     vector_service: VectorService = Depends(get_vector_service),
@@ -83,18 +84,16 @@ async def add_document(
         vector_service (VectorService): DIで注入されるベクトル化サービス
 
     Returns:
-        AddDocumentResponse: 保存結果
+        AddDocumentResponse: ベクトルIDと特徴量を含む保存結果
     """
     print(f"[{datetime.datetime.now()}] 文書追加処理開始")
     try:
-        document_id = await vector_service.add_document(
-            text=request.text, metadata=request.metadata
-        )
+        result = await vector_service.add_document(text=request.text)
 
-        print(f"[{datetime.datetime.now()}] 文書追加処理完了: {document_id}")
+        print(f"[{datetime.datetime.now()}] 文書追加処理完了: {result['vector_id']}")
 
         return AddDocumentResponse(
-            document_id=document_id, message="文書が正常に保存されました"
+            vector_id=result["vector_id"], embedding=result["embedding"]
         )
 
     except Exception as e:
@@ -160,6 +159,31 @@ async def get_collection_info(
     except Exception as e:
         return JSONResponse(
             status_code=500, content={"error": f"情報の取得に失敗しました: {str(e)}"}
+        )
+
+
+@app.delete("/api/documents/all", response_model=DeleteAllDocumentsResponse)
+async def delete_all_documents(
+    vector_service: VectorService = Depends(get_vector_service),
+) -> DeleteAllDocumentsResponse:
+    """保存されている全ての文書を削除"""
+    try:
+        print(f"[{datetime.datetime.now()}] 全文書削除処理開始")
+
+        result = await vector_service.delete_all_documents()
+
+        print(
+            f"[{datetime.datetime.now()}] 全文書削除処理完了: {result['deleted_count']}件削除"
+        )
+
+        return DeleteAllDocumentsResponse(
+            success=result["success"],
+            deleted_count=result["deleted_count"],
+            message=f"{result['deleted_count']}件の文書を削除しました",
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"error": f"全文書の削除に失敗しました: {str(e)}"}
         )
 
 

@@ -39,15 +39,14 @@ class VectorService:
 
         print(f"[{datetime.datetime.now()}] VectorService初期化完了")
 
-    async def add_document(self, text: str, metadata: Dict[str, Any] = None) -> str:
+    async def add_document(self, text: str) -> Dict[str, Any]:
         """文書をベクトル化してDBに保存
 
         Args:
             text (str): ベクトル化するテキスト
-            metadata (Dict[str, Any], optional): 文書に関するメタデータ
 
         Returns:
-            str: 保存された文書のID
+            Dict[str, Any]: 保存された文書のIDとベクトル（embedding）
 
         Raises:
             Exception: ベクトル化またはDB保存に失敗した場合
@@ -68,8 +67,6 @@ class VectorService:
                 "created_at": datetime.datetime.now().isoformat(),
                 "text_length": len(text),
             }
-            if metadata:
-                doc_metadata.update(metadata)
 
             print(f"[{datetime.datetime.now()}] ChromaDBへの保存開始")
 
@@ -83,7 +80,7 @@ class VectorService:
 
             print(f"[{datetime.datetime.now()}] ChromaDBへの保存完了: {doc_id}")
 
-            return doc_id
+            return {"vector_id": doc_id, "embedding": embedding}
 
         except Exception as e:
             print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
@@ -205,6 +202,38 @@ class VectorService:
         except Exception as e:
             print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
             raise Exception(f"文書の削除に失敗しました: {str(e)}")
+
+    async def delete_all_documents(self) -> Dict[str, Any]:
+        """保存されている全ての文書を削除
+
+        Returns:
+            Dict[str, Any]: 削除結果（削除数と成功フラグ）
+        """
+        try:
+            print(f"[{datetime.datetime.now()}] 全文書削除開始")
+
+            # 削除前の文書数を取得
+            count_before = self.collection.count()
+
+            # 全文書を取得してIDのリストを作成
+            all_docs = self.collection.get()
+            all_ids = all_docs["ids"]
+
+            if all_ids:
+                # 全IDを指定して一括削除
+                self.collection.delete(ids=all_ids)
+
+            # 削除後の文書数を確認
+            count_after = self.collection.count()
+            deleted_count = count_before - count_after
+
+            print(f"[{datetime.datetime.now()}] 全文書削除完了: {deleted_count}件削除")
+
+            return {"success": True, "deleted_count": deleted_count}
+
+        except Exception as e:
+            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            raise Exception(f"全文書の削除に失敗しました: {str(e)}")
 
 
 def get_vector_service() -> VectorService:

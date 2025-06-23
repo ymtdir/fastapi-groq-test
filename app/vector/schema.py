@@ -14,18 +14,13 @@ class AddDocumentRequest(BaseModel):
     text: str = Field(
         ..., description="ベクトル化するテキスト", example="これは重要な文書です。"
     )
-    metadata: Optional[Dict[str, Any]] = Field(
-        None,
-        description="文書のメタデータ",
-        example={"category": "manual", "title": "使用方法"},
-    )
 
 
 class AddDocumentResponse(BaseModel):
     """文書追加レスポンスモデル"""
 
-    document_id: str = Field(..., description="保存された文書のID")
-    message: str = Field(..., description="処理結果メッセージ")
+    vector_id: str = Field(..., description="保存された文書のベクトルID")
+    embedding: List[float] = Field(..., description="テキストの特徴量（ベクトル）")
 
 
 class SearchDocumentsRequest(BaseModel):
@@ -66,4 +61,12 @@ class DeleteDocumentResponse(BaseModel):
     """文書削除レスポンスモデル"""
 
     success: bool = Field(..., description="削除成功フラグ")
+    message: str = Field(..., description="処理結果メッセージ")
+
+
+class DeleteAllDocumentsResponse(BaseModel):
+    """全文書削除レスポンスモデル"""
+
+    success: bool = Field(..., description="削除成功フラグ")
+    deleted_count: int = Field(..., description="削除された文書数")
     message: str = Field(..., description="処理結果メッセージ")
