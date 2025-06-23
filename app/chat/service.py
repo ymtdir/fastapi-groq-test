@@ -31,6 +31,11 @@ class ChatService:
             api_key=settings.GROQ_API_KEY,
         )
 
+        # VectorServiceを追加
+        from ..vector.service import VectorService
+
+        self.vector_service = VectorService()
+
     async def process_message(self, message: str) -> str:
         """メッセージを処理してGROQから応答を取得
 
@@ -47,33 +52,43 @@ class ChatService:
             raise ValueError("メッセージが空です")
 
         try:
-            # GROQにメッセージを送信
-            print(f"[{datetime.datetime.now()}] Groq API呼び出し開始")
+            # 1. 関連文書を検索
+            similar_docs = await self.vector_service.search_similar_documents(
+                query=message, n_results=3
+            )
+
+            # 2. コンテキストを作成
+            context = "\n".join([doc["document"] for doc in similar_docs])
+
+            # 3. RAGプロンプトを作成
+            prompt = f"""以下の情報だけを参考にして、質問に答えてください。
+参考情報がない場合は、「申し訳ございませんが、その情報は見つかりませんでした」と答えてください。
+
+参考情報:
+{context}
+
+質問: {message}"""
+
+            # 4. GROQに送信
             chat_completion = self.groq_client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": message,
-                    }
-                ],
-                model="llama3-8b-8192",  # GROQの利用可能なモデル
+                messages=[{"role": "user", "content": prompt}],
+                model="llama3-8b-8192",
                 temperature=0.7,
                 max_tokens=1024,
             )
-            print(f"[{datetime.datetime.now()}] Groq API呼び出し完了")
 
-            # 応答を取得
-            reply = chat_completion.choices[0].message.content
-            return reply
+            return chat_completion.choices[0].message.content
 
         except Exception as e:
-            raise Exception(f"GROQ APIエラー: {str(e)}")
+            raise Exception(f"RAG処理エラー: {str(e)}")
 
 
 def get_chat_service() -> ChatService:
     """ChatServiceのインスタンスを取得
 
     Returns:
-        ChatService: ChatServiceのインスタンス
+
+
+
     """
     return ChatService()
