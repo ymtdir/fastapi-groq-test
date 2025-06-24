@@ -39,10 +39,12 @@ class VectorService:
 
         print(f"[{datetime.datetime.now()}] VectorService初期化完了")
 
-    async def add_document(self, text: str) -> Dict[str, Any]:
+    async def add_document(self, id: str, title: str, text: str) -> Dict[str, Any]:
         """文書をベクトル化してDBに保存
 
         Args:
+            id (str): 文書の一意ID
+            title (str): 文書のタイトル
             text (str): ベクトル化するテキスト
 
         Returns:
@@ -52,35 +54,47 @@ class VectorService:
             Exception: ベクトル化またはDB保存に失敗した場合
         """
         try:
-            print(f"[{datetime.datetime.now()}] ベクトル化開始")
+            print(f"[{datetime.datetime.now()}] ベクトル化開始: ID={id}")
+
+            # 既存データの確認
+            existing = self.collection.get(ids=[id])
+            if existing["ids"]:
+                print(
+                    f"[{datetime.datetime.now()}] 既存データが見つかりました: {existing}"
+                )
+            else:
+                print(f"[{datetime.datetime.now()}] 新規データです")
 
             # テキストをベクトルに変換
             embedding = self.embedding_model.encode([text])[0].tolist()
-
-            print(f"[{datetime.datetime.now()}] ベクトル化完了")
-
-            # 一意のIDを生成
-            doc_id = str(uuid.uuid4())
+            print(
+                f"[{datetime.datetime.now()}] ベクトル化完了: 次元数={len(embedding)}"
+            )
 
             # メタデータの準備
             doc_metadata = {
+                "title": title,
                 "created_at": datetime.datetime.now().isoformat(),
                 "text_length": len(text),
             }
 
             print(f"[{datetime.datetime.now()}] ChromaDBへの保存開始")
 
-            # ChromaDBに保存
-            self.collection.add(
+            # upsertを使用して確実に上書き
+            self.collection.upsert(
                 embeddings=[embedding],
                 documents=[text],
                 metadatas=[doc_metadata],
-                ids=[doc_id],
+                ids=[id],
             )
 
-            print(f"[{datetime.datetime.now()}] ChromaDBへの保存完了: {doc_id}")
+            print(f"[{datetime.datetime.now()}] ChromaDBへの保存完了: {id}")
 
-            return {"vector_id": doc_id, "embedding": embedding}
+            # 保存後の確認
+            saved_data = self.collection.get(ids=[id])
+            print(f"[{datetime.datetime.now()}] 保存後確認: {saved_data}")
+
+            return {"vector_id": id, "embedding": embedding}
 
         except Exception as e:
             print(f"[{datetime.datetime.now()}] エラー: {str(e)}")

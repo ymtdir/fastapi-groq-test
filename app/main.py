@@ -80,7 +80,7 @@ async def add_document(
     受け取った文書をベクトル化し、ChromaDBに保存します。
 
     Args:
-        request (AddDocumentRequest): 文書追加リクエスト
+        request (AddDocumentRequest): 文書追加リクエスト（id、title、textを含む）
         vector_service (VectorService): DIで注入されるベクトル化サービス
 
     Returns:
@@ -88,13 +88,13 @@ async def add_document(
     """
     print(f"[{datetime.datetime.now()}] 文書追加処理開始")
     try:
-        result = await vector_service.add_document(text=request.text)
+        result = await vector_service.add_document(
+            id=request.id, title=request.title, text=request.text
+        )
 
         print(f"[{datetime.datetime.now()}] 文書追加処理完了: {result['vector_id']}")
 
-        return AddDocumentResponse(
-            vector_id=result["vector_id"], embedding=result["embedding"]
-        )
+        return AddDocumentResponse(embedding=result["embedding"])
 
     except Exception as e:
         return JSONResponse(

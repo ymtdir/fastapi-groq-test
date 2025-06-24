@@ -11,6 +11,8 @@ from typing import Dict, Any, List, Optional
 class AddDocumentRequest(BaseModel):
     """文書追加リクエストモデル"""
 
+    id: str = Field(..., description="文書の一意ID", example="vector-000")
+    title: str = Field(..., description="文書のタイトル", example="重要な文書")
     text: str = Field(
         ..., description="ベクトル化するテキスト", example="これは重要な文書です。"
     )
@@ -19,7 +21,6 @@ class AddDocumentRequest(BaseModel):
 class AddDocumentResponse(BaseModel):
     """文書追加レスポンスモデル"""
 
-    vector_id: str = Field(..., description="保存された文書のベクトルID")
     embedding: List[float] = Field(..., description="テキストの特徴量（ベクトル）")
 
 
