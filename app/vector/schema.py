@@ -44,6 +44,15 @@ class GetAllDocumentsResponse(BaseModel):
     count: int = Field(..., description="文書の総数")
 
 
+class GetDocumentResponse(BaseModel):
+    """個別文書取得レスポンスモデル"""
+
+    id: str = Field(..., description="文書のID")
+    title: str = Field(..., description="文書のタイトル")
+    text: str = Field(..., description="文書の内容")
+    metadata: Dict[str, Any] = Field(..., description="メタデータ")
+
+
 class CollectionInfoResponse(BaseModel):
     """コレクション情報レスポンスモデル"""
 

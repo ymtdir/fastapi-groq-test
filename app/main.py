@@ -14,6 +14,7 @@ from .vector.schema import (
     DeleteDocumentRequest,
     DeleteDocumentResponse,
     DeleteAllDocumentsResponse,
+    GetDocumentResponse,
 )
 import datetime
 
@@ -70,7 +71,7 @@ async def receive_chat(
         )
 
 
-@app.post("/api/documents/add", response_model=AddDocumentResponse)
+@app.post("/api/documents", response_model=AddDocumentResponse)
 async def add_document(
     request: AddDocumentRequest,
     vector_service: VectorService = Depends(get_vector_service),
@@ -84,7 +85,7 @@ async def add_document(
         vector_service (VectorService): DIで注入されるベクトル化サービス
 
     Returns:
-        AddDocumentResponse: ベクトルIDと特徴量を含む保存結果
+        AddDocumentResponse: 特徴量を含む保存結果
     """
     print(f"[{datetime.datetime.now()}] 文書追加処理開始")
     try:
@@ -134,11 +135,11 @@ async def search_documents(
         )
 
 
-@app.get("/api/documents/all", response_model=GetAllDocumentsResponse)
+@app.get("/api/documents", response_model=GetAllDocumentsResponse)
 async def get_all_documents(
     vector_service: VectorService = Depends(get_vector_service),
 ) -> GetAllDocumentsResponse:
-    """保存されている全ての文書を取得（デバッグ用）"""
+    """保存されている全ての文書を取得"""
     try:
         documents = await vector_service.get_all_documents()
         return GetAllDocumentsResponse(documents=documents, count=len(documents))
@@ -162,7 +163,7 @@ async def get_collection_info(
         )
 
 
-@app.delete("/api/documents/all", response_model=DeleteAllDocumentsResponse)
+@app.delete("/api/documents", response_model=DeleteAllDocumentsResponse)
 async def delete_all_documents(
     vector_service: VectorService = Depends(get_vector_service),
 ) -> DeleteAllDocumentsResponse:
@@ -200,6 +201,21 @@ async def delete_document(
     except Exception as e:
         return JSONResponse(
             status_code=500, content={"error": f"文書の削除に失敗しました: {str(e)}"}
+        )
+
+
+@app.get("/api/documents/{document_id}", response_model=GetDocumentResponse)
+async def get_document(
+    document_id: str,
+    vector_service: VectorService = Depends(get_vector_service),
+) -> GetDocumentResponse:
+    """指定されたIDの文書を取得"""
+    try:
+        document = await vector_service.get_document(document_id)
+        return GetDocumentResponse(**document)
+    except Exception as e:
+        return JSONResponse(
+            status_code=404, content={"error": f"文書が見つかりません: {str(e)}"}
         )
 
 

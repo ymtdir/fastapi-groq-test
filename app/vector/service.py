@@ -249,6 +249,43 @@ class VectorService:
             print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
             raise Exception(f"全文書の削除に失敗しました: {str(e)}")
 
+    async def get_document(self, document_id: str) -> Dict[str, Any]:
+        """指定されたIDの文書を取得
+
+        Args:
+            document_id (str): 取得する文書のID
+
+        Returns:
+            Dict[str, Any]: 文書の情報
+
+        Raises:
+            Exception: 文書が見つからない場合
+        """
+        try:
+            print(f"[{datetime.datetime.now()}] 個別文書取得開始: {document_id}")
+
+            # 指定されたIDの文書を取得
+            results = self.collection.get(ids=[document_id])
+
+            if not results["ids"]:
+                raise Exception(f"ID {document_id} の文書が見つかりません")
+
+            # 結果を整形
+            document = {
+                "id": results["ids"][0],
+                "title": results["metadatas"][0].get("title", ""),
+                "text": results["documents"][0],
+                "metadata": results["metadatas"][0],
+            }
+
+            print(f"[{datetime.datetime.now()}] 個別文書取得完了: {document_id}")
+
+            return document
+
+        except Exception as e:
+            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            raise Exception(f"文書の取得に失敗しました: {str(e)}")
+
 
 def get_vector_service() -> VectorService:
     """VectorServiceのインスタンスを取得
