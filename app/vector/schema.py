@@ -51,6 +51,7 @@ class GetDocumentResponse(BaseModel):
     title: str = Field(..., description="文書のタイトル")
     text: str = Field(..., description="文書の内容")
     metadata: Dict[str, Any] = Field(..., description="メタデータ")
+    embedding: List[float] = Field(..., description="文書の特徴量（ベクトル）")
 
 
 class CollectionInfoResponse(BaseModel):

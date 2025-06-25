@@ -256,7 +256,7 @@ class VectorService:
             document_id (str): 取得する文書のID
 
         Returns:
-            Dict[str, Any]: 文書の情報
+            Dict[str, Any]: 文書の情報（embeddingを含む）
 
         Raises:
             Exception: 文書が見つからない場合
@@ -264,8 +264,10 @@ class VectorService:
         try:
             print(f"[{datetime.datetime.now()}] 個別文書取得開始: {document_id}")
 
-            # 指定されたIDの文書を取得
-            results = self.collection.get(ids=[document_id])
+            # 指定されたIDの文書を取得（embeddingも含む）
+            results = self.collection.get(
+                ids=[document_id], include=["documents", "metadatas", "embeddings"]
+            )
 
             if not results["ids"]:
                 raise Exception(f"ID {document_id} の文書が見つかりません")
@@ -276,6 +278,7 @@ class VectorService:
                 "title": results["metadatas"][0].get("title", ""),
                 "text": results["documents"][0],
                 "metadata": results["metadatas"][0],
+                "embedding": results["embeddings"][0],
             }
 
             print(f"[{datetime.datetime.now()}] 個別文書取得完了: {document_id}")
