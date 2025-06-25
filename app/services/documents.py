@@ -4,12 +4,15 @@
 テキストの特徴量を算出し、ChromaDBに保存する機能を提供します。
 """
 
+import logging
 import chromadb
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 import uuid
 import datetime
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentService:
@@ -24,12 +27,15 @@ class DocumentService:
 
         SentenceTransformerとChromaDBクライアントを初期化します。
         """
-        print(f"[{datetime.datetime.now()}] DocumentService初期化開始")
+        logger.info("DocumentService初期化開始")
 
         # 日本語に対応したEmbeddingモデルを使用
+        logger.debug("Embeddingモデル読み込み開始: intfloat/multilingual-e5-large")
         self.embedding_model = SentenceTransformer("intfloat/multilingual-e5-large")
+        logger.info("Embeddingモデル読み込み完了")
 
         # ChromaDBクライアントの初期化
+        logger.debug("ChromaDBクライアント初期化開始")
         self.chroma_client = chromadb.PersistentClient(path="./vector_db")
 
         # コレクション（テーブルのようなもの）を取得または作成
@@ -37,8 +43,9 @@ class DocumentService:
             name="documents",
             metadata={"description": "文書の特徴量を保存するコレクション"},
         )
+        logger.info("ChromaDBクライアント初期化完了")
 
-        print(f"[{datetime.datetime.now()}] DocumentService初期化完了")
+        logger.info("DocumentService初期化完了")
 
     async def add_document(self, id: str, title: str, text: str) -> Dict[str, Any]:
         """文書をベクトル化してDBに保存
@@ -55,22 +62,19 @@ class DocumentService:
             Exception: ベクトル化またはDB保存に失敗した場合
         """
         try:
-            print(f"[{datetime.datetime.now()}] ベクトル化開始: ID={id}")
+            logger.info(f"文書追加開始: ID={id}, タイトル={title}")
 
             # 既存データの確認
             existing = self.collection.get(ids=[id])
             if existing["ids"]:
-                print(
-                    f"[{datetime.datetime.now()}] 既存データが見つかりました: {existing}"
-                )
+                logger.warning(f"既存データを上書きします: ID={id}")
             else:
-                print(f"[{datetime.datetime.now()}] 新規データです")
+                logger.debug(f"新規文書データです: ID={id}")
 
             # テキストをベクトルに変換
+            logger.debug("ベクトル化処理開始")
             embedding = self.embedding_model.encode([text])[0].tolist()
-            print(
-                f"[{datetime.datetime.now()}] ベクトル化完了: 次元数={len(embedding)}"
-            )
+            logger.debug(f"ベクトル化完了: 次元数={len(embedding)}")
 
             # メタデータの準備
             doc_metadata = {
@@ -79,7 +83,7 @@ class DocumentService:
                 "text_length": len(text),
             }
 
-            print(f"[{datetime.datetime.now()}] ChromaDBへの保存開始")
+            logger.debug("ChromaDBへの保存開始")
 
             # upsertを使用して確実に上書き
             self.collection.upsert(
@@ -89,16 +93,16 @@ class DocumentService:
                 ids=[id],
             )
 
-            print(f"[{datetime.datetime.now()}] ChromaDBへの保存完了: {id}")
+            logger.info(f"文書保存完了: ID={id}")
 
             # 保存後の確認
             saved_data = self.collection.get(ids=[id])
-            print(f"[{datetime.datetime.now()}] 保存後確認: {saved_data}")
+            logger.debug(f"保存後確認完了: データ確認OK")
 
             return {"vector_id": id, "embedding": embedding}
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(f"文書保存エラー: ID={id}, エラー={str(e)}", exc_info=True)
             raise Exception(f"文書の保存に失敗しました: {str(e)}")
 
     async def search_similar_documents(
@@ -114,12 +118,18 @@ class DocumentService:
             List[Dict[str, Any]]: 類似文書のリスト
         """
         try:
-            print(f"[{datetime.datetime.now()}] 類似文書検索開始")
+            logger.info(
+                f"類似文書検索開始: クエリ={query[:50]}{'...' if len(query) > 50 else ''}"
+            )
+            logger.debug(f"検索結果数: {n_results}")
 
             # クエリをベクトル化
+            logger.debug("検索クエリのベクトル化開始")
             query_embedding = self.embedding_model.encode([query])[0].tolist()
+            logger.debug("検索クエリのベクトル化完了")
 
             # 類似文書を検索
+            logger.debug("ChromaDB検索実行")
             results = self.collection.query(
                 query_embeddings=[query_embedding], n_results=n_results
             )
@@ -136,14 +146,14 @@ class DocumentService:
                     }
                 )
 
-            print(
-                f"[{datetime.datetime.now()}] 類似文書検索完了: {len(similar_docs)}件"
+            logger.info(
+                f"類似文書検索完了: {len(similar_docs)}件の文書が見つかりました"
             )
 
             return similar_docs
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(f"類似文書検索エラー: {str(e)}", exc_info=True)
             raise Exception(f"類似文書の検索に失敗しました: {str(e)}")
 
     async def get_all_documents(self) -> List[Dict[str, Any]]:
@@ -153,7 +163,7 @@ class DocumentService:
             List[Dict[str, Any]]: 全文書のリスト
         """
         try:
-            print(f"[{datetime.datetime.now()}] 全文書取得開始")
+            logger.info("全文書取得開始")
 
             # コレクションの全データを取得
             results = self.collection.get()
@@ -169,12 +179,12 @@ class DocumentService:
                     }
                 )
 
-            print(f"[{datetime.datetime.now()}] 全文書取得完了: {len(all_docs)}件")
+            logger.info(f"全文書取得完了: {len(all_docs)}件の文書を取得")
 
             return all_docs
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(f"全文書取得エラー: {str(e)}", exc_info=True)
             raise Exception(f"文書の取得に失敗しました: {str(e)}")
 
     async def get_collection_info(self) -> Dict[str, Any]:
@@ -184,6 +194,8 @@ class DocumentService:
             Dict[str, Any]: コレクションの情報
         """
         try:
+            logger.debug("コレクション情報取得")
+
             # コレクションの基本情報
             collection_info = {
                 "name": self.collection.name,
@@ -191,9 +203,11 @@ class DocumentService:
                 "count": self.collection.count(),
             }
 
+            logger.debug(f"コレクション情報: {collection_info}")
             return collection_info
 
         except Exception as e:
+            logger.error(f"コレクション情報取得エラー: {str(e)}", exc_info=True)
             raise Exception(f"コレクション情報の取得に失敗しました: {str(e)}")
 
     async def delete_document(self, document_id: str) -> bool:
@@ -206,16 +220,18 @@ class DocumentService:
             bool: 削除成功時True
         """
         try:
-            print(f"[{datetime.datetime.now()}] 文書削除開始: {document_id}")
+            logger.info(f"文書削除開始: ID={document_id}")
 
             self.collection.delete(ids=[document_id])
 
-            print(f"[{datetime.datetime.now()}] 文書削除完了: {document_id}")
+            logger.info(f"文書削除完了: ID={document_id}")
 
             return True
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(
+                f"文書削除エラー: ID={document_id}, エラー={str(e)}", exc_info=True
+            )
             raise Exception(f"文書の削除に失敗しました: {str(e)}")
 
     async def delete_all_documents(self) -> Dict[str, Any]:
@@ -225,10 +241,11 @@ class DocumentService:
             Dict[str, Any]: 削除結果（削除数と成功フラグ）
         """
         try:
-            print(f"[{datetime.datetime.now()}] 全文書削除開始")
+            logger.warning("全文書削除開始")
 
             # 削除前の文書数を取得
             count_before = self.collection.count()
+            logger.info(f"削除対象文書数: {count_before}件")
 
             # 全文書を取得してIDのリストを作成
             all_docs = self.collection.get()
@@ -242,12 +259,12 @@ class DocumentService:
             count_after = self.collection.count()
             deleted_count = count_before - count_after
 
-            print(f"[{datetime.datetime.now()}] 全文書削除完了: {deleted_count}件削除")
+            logger.warning(f"全文書削除完了: {deleted_count}件削除")
 
             return {"success": True, "deleted_count": deleted_count}
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(f"全文書削除エラー: {str(e)}", exc_info=True)
             raise Exception(f"全文書の削除に失敗しました: {str(e)}")
 
     async def get_document(self, document_id: str) -> Dict[str, Any]:
@@ -263,7 +280,7 @@ class DocumentService:
             Exception: 文書が見つからない場合
         """
         try:
-            print(f"[{datetime.datetime.now()}] 個別文書取得開始: {document_id}")
+            logger.debug(f"個別文書取得開始: ID={document_id}")
 
             # 指定されたIDの文書を取得（embeddingも含む）
             results = self.collection.get(
@@ -271,6 +288,7 @@ class DocumentService:
             )
 
             if not results["ids"]:
+                logger.warning(f"文書が見つかりません: ID={document_id}")
                 raise Exception(f"ID {document_id} の文書が見つかりません")
 
             # 結果を整形
@@ -282,12 +300,14 @@ class DocumentService:
                 "embedding": results["embeddings"][0],
             }
 
-            print(f"[{datetime.datetime.now()}] 個別文書取得完了: {document_id}")
+            logger.debug(f"個別文書取得完了: ID={document_id}")
 
             return document
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(
+                f"個別文書取得エラー: ID={document_id}, エラー={str(e)}", exc_info=True
+            )
             raise Exception(f"文書の取得に失敗しました: {str(e)}")
 
 
@@ -297,6 +317,7 @@ def get_document_service() -> DocumentService:
     Returns:
         DocumentService: DocumentServiceのインスタンス
     """
+    logger.debug("DocumentServiceインスタンス作成")
     return DocumentService()
 
 

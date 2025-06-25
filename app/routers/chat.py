@@ -4,11 +4,14 @@
 チャット関連のAPIエンドポイントを定義します。
 """
 
+import logging
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from ..services.chat import ChatService, get_chat_service
 from ..schemas.chat import ChatRequest, ChatResponse
 import datetime
+
+logger = logging.getLogger(__name__)
 
 # チャット機能用のルーター
 router = APIRouter(
@@ -34,18 +37,25 @@ async def receive_chat(
     Returns:
         ChatResponse: {"reply": "応答メッセージ"} 形式のレスポンス
     """
-    print(f"[{datetime.datetime.now()}] 処理開始: /api/chat")
+    logger.info(f"チャットAPI呼び出し開始: /api/chat")
+    logger.debug(
+        f"受信メッセージ: {chat_request.message[:100]}{'...' if len(chat_request.message) > 100 else ''}"
+    )
+
     try:
         # ChatServiceを使用してGROQにメッセージを送信
-        print(f"[{datetime.datetime.now()}] ChatService呼び出し開始")
+        logger.debug("ChatService呼び出し開始")
         chat_reply = await chat_service.process_message(chat_request.message)
-        print(f"[{datetime.datetime.now()}] ChatService呼び出し完了")
+        logger.debug("ChatService呼び出し完了")
+        logger.info("チャットAPI処理成功")
 
         return ChatResponse(reply=chat_reply)
 
     except ValueError as e:
+        logger.warning(f"バリデーションエラー: {str(e)}")
         return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
+        logger.error(f"チャットAPI処理エラー: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500, content={"error": f"エラーが発生しました: {str(e)}"}
         )

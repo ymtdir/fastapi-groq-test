@@ -5,9 +5,12 @@
 登録されている文書情報を検索し、Groq APIを使用して回答を生成します。
 """
 
+import logging
 from groq import Groq
 from ..config import settings
 import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -19,15 +22,20 @@ class ChatService:
 
     def __init__(self):
         """ChatServiceの初期化"""
+        logger.info("ChatService初期化開始")
+
         if not settings.GROQ_API_KEY:
+            logger.error("GROQ_API_KEYが設定されていません")
             raise ValueError("GROQ_API_KEYが設定されていません")
 
         self.groq_client = Groq(api_key=settings.GROQ_API_KEY)
+        logger.info("Groqクライアント初期化完了")
 
         # 文書検索サービス
         from .documents import DocumentService
 
         self.document_service = DocumentService()
+        logger.info("DocumentService初期化完了")
 
         # プリザンター専用システムプロンプト
         self.system_prompt = """あなたはプリザンター業務システム専用のAIアシスタントです。
@@ -43,8 +51,13 @@ class ChatService:
             - 回答は分かりやすく、実用的にしてください
             """
 
+        logger.info("ChatService初期化完了")
+
     async def process_message(self, message: str) -> str:
         """プリザンターに関する質問に回答（後方互換性用）"""
+        logger.warning(
+            "process_message()は非推奨です。answer_question()を使用してください"
+        )
         return await self.answer_question(message)
 
     async def answer_question(self, question: str) -> str:
@@ -61,18 +74,24 @@ class ChatService:
             Exception: API エラーが発生した場合
         """
         if not question.strip():
+            logger.warning("空の質問が送信されました")
             raise ValueError("質問が空です")
 
-        try:
-            print(f"[{datetime.datetime.now()}] プリザンター質問処理開始")
+        logger.info(
+            f"質問処理開始: {question[:50]}{'...' if len(question) > 50 else ''}"
+        )
 
+        try:
             # 1. 関連文書を検索
+            logger.debug("関連文書検索開始")
             related_docs = await self.document_service.search_similar_documents(
                 query=question, n_results=3
             )
+            logger.info(f"関連文書検索完了: {len(related_docs)}件見つかりました")
 
             # 2. コンテキストを構築
             context = self._build_context(related_docs)
+            logger.debug(f"コンテキスト構築完了: {len(context)}文字")
 
             # 3. プロンプトを作成
             messages = [
@@ -89,6 +108,7 @@ class ChatService:
             ]
 
             # 4. Groq APIで回答生成
+            logger.debug("Groq API呼び出し開始")
             response = self.groq_client.chat.completions.create(
                 messages=messages,
                 model="llama3-8b-8192",
@@ -97,17 +117,19 @@ class ChatService:
             )
 
             answer = response.choices[0].message.content
-            print(f"[{datetime.datetime.now()}] プリザンター質問処理完了")
+            logger.info("Groq API呼び出し完了")
+            logger.info(f"質問処理完了: 回答生成成功({len(answer)}文字)")
 
             return answer
 
         except Exception as e:
-            print(f"[{datetime.datetime.now()}] エラー: {str(e)}")
+            logger.error(f"質問処理エラー: {str(e)}", exc_info=True)
             raise Exception(f"回答生成エラー: {str(e)}")
 
     def _build_context(self, documents: list) -> str:
         """文書リストからコンテキスト文字列を構築"""
         if not documents:
+            logger.warning("関連文書が見つかりませんでした")
             return "関連する文書情報が見つかりませんでした。"
 
         context_parts = []
@@ -118,11 +140,14 @@ class ChatService:
             if content:
                 context_parts.append(f"【{title}】\n{content}")
 
-        return (
+        result = (
             "\n\n".join(context_parts)
             if context_parts
             else "関連する文書情報が見つかりませんでした。"
         )
+
+        logger.debug(f"コンテキスト構築: {len(context_parts)}個の文書を使用")
+        return result
 
 
 def get_chat_service() -> ChatService:
@@ -131,4 +156,5 @@ def get_chat_service() -> ChatService:
     Returns:
         ChatService: チャットサービスのインスタンス
     """
+    logger.debug("ChatServiceインスタンス作成")
     return ChatService()
