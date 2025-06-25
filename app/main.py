@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .chat.service import ChatService, get_chat_service
-from .chat.schema import ChatRequest, ChatResponse
-from .vector.service import VectorService, get_vector_service
-from .vector.schema import (
+from .services.chat import ChatService, get_chat_service
+from .schemas.chat import ChatRequest, ChatResponse
+from .services.documents import VectorService, get_vector_service
+from .schemas.documents import (
     AddDocumentRequest,
     AddDocumentResponse,
     SearchDocumentsRequest,

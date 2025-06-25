@@ -31,10 +31,10 @@ class ChatService:
             api_key=settings.GROQ_API_KEY,
         )
 
-        # VectorServiceを追加
-        from ..vector.service import VectorService
+        # DocumentServiceを追加
+        from .documents import DocumentService
 
-        self.vector_service = VectorService()
+        self.document_service = DocumentService()
 
     async def process_message(self, message: str) -> str:
         """メッセージを処理してGROQから応答を取得
@@ -53,7 +53,7 @@ class ChatService:
 
         try:
             # 1. 関連文書を検索
-            similar_docs = await self.vector_service.search_similar_documents(
+            similar_docs = await self.document_service.search_similar_documents(
                 query=message, n_results=3
             )
 
@@ -87,8 +87,6 @@ def get_chat_service() -> ChatService:
     """ChatServiceのインスタンスを取得
 
     Returns:
-
-
-
+        ChatService: ChatServiceのインスタンス
     """
     return ChatService()

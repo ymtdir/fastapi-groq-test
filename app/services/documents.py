@@ -12,18 +12,19 @@ import datetime
 from ..config import settings
 
 
-class VectorService:
-    """ベクトル化サービスクラス
+class DocumentService:
+    """文書管理サービスクラス
 
     テキストをベクトルに変換し、ChromaDBに保存する機能を提供します。
+    文書の追加、検索、取得、削除などの文書管理機能を包括的に提供します。
     """
 
     def __init__(self):
-        """VectorServiceの初期化
+        """DocumentServiceの初期化
 
         SentenceTransformerとChromaDBクライアントを初期化します。
         """
-        print(f"[{datetime.datetime.now()}] VectorService初期化開始")
+        print(f"[{datetime.datetime.now()}] DocumentService初期化開始")
 
         # 日本語に対応したEmbeddingモデルを使用
         self.embedding_model = SentenceTransformer("intfloat/multilingual-e5-large")
@@ -37,7 +38,7 @@ class VectorService:
             metadata={"description": "文書の特徴量を保存するコレクション"},
         )
 
-        print(f"[{datetime.datetime.now()}] VectorService初期化完了")
+        print(f"[{datetime.datetime.now()}] DocumentService初期化完了")
 
     async def add_document(self, id: str, title: str, text: str) -> Dict[str, Any]:
         """文書をベクトル化してDBに保存
@@ -290,10 +291,15 @@ class VectorService:
             raise Exception(f"文書の取得に失敗しました: {str(e)}")
 
 
-def get_vector_service() -> VectorService:
-    """VectorServiceのインスタンスを取得
+def get_document_service() -> DocumentService:
+    """DocumentServiceのインスタンスを取得
 
     Returns:
-        VectorService: VectorServiceのインスタンス
+        DocumentService: DocumentServiceのインスタンス
     """
-    return VectorService()
+    return DocumentService()
+
+
+# 後方互換性のための別名
+VectorService = DocumentService
+get_vector_service = get_document_service
