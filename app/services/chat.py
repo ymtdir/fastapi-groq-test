@@ -49,6 +49,9 @@ class ChatService:
             - 参考情報に答えがない場合は「申し訳ございませんが、その情報は見つかりませんでした。プリザンターの管理者にお問い合わせください」と回答
             - 推測や想像での回答は行わないでください
             - 回答は分かりやすく、実用的にしてください
+            - 質問に対して必要最小限の情報のみ答えてください
+            - 挨拶や雑談には簡潔に返し、詳細な説明は求められた場合のみ提供してください
+            - 関連情報の自発的な提供は避け、聞かれたことだけに答えてください
             """
 
         logger.info("ChatService初期化完了")
@@ -81,6 +84,12 @@ class ChatService:
             f"質問処理開始: {question[:50]}{'...' if len(question) > 50 else ''}"
         )
 
+        # 簡単な挨拶や雑談の場合は短い返答を直接返す
+        simple_greetings = self._check_simple_greeting(question)
+        if simple_greetings:
+            logger.info("簡単な挨拶として処理")
+            return simple_greetings
+
         try:
             # 1. 関連文書を検索
             logger.debug("関連文書検索開始")
@@ -103,6 +112,8 @@ class ChatService:
                         {context}
 
                         質問: {question}
+                        
+                        注意: この質問に対して、必要最小限の情報のみで簡潔に答えてください。
                     """,
                 },
             ]
@@ -112,8 +123,8 @@ class ChatService:
             response = self.groq_client.chat.completions.create(
                 messages=messages,
                 model="llama3-8b-8192",
-                temperature=0.3,  # 正確性重視で低めに設定
-                max_tokens=1024,
+                temperature=0.1,  # より一貫した簡潔な回答のため低く設定
+                max_tokens=256,  # 回答の長さを制限
             )
 
             answer = response.choices[0].message.content
@@ -125,6 +136,36 @@ class ChatService:
         except Exception as e:
             logger.error(f"質問処理エラー: {str(e)}", exc_info=True)
             raise Exception(f"回答生成エラー: {str(e)}")
+
+    def _check_simple_greeting(self, question: str) -> str:
+        """簡単な挨拶や雑談かどうかをチェックし、該当する場合は短い返答を返す"""
+        question_lower = question.lower().strip()
+
+        # 挨拶パターン
+        greetings = [
+            "こんにちは",
+            "こんばんは",
+            "おはよう",
+            "hello",
+            "hi",
+            "はじめまして",
+        ]
+        thanks = ["ありがとう", "thank", "感謝"]
+        goodbye = ["さようなら", "またね", "bye", "goodbye"]
+
+        for greeting in greetings:
+            if greeting in question_lower:
+                return "こんにちは！何かお手伝いできることはありますか？"
+
+        for thank in thanks:
+            if thank in question_lower:
+                return "どういたしまして！"
+
+        for bye in goodbye:
+            if bye in question_lower:
+                return "また何かありましたらお声かけください！"
+
+        return None
 
     def _build_context(self, documents: list) -> str:
         """文書リストからコンテキスト文字列を構築"""

@@ -195,3 +195,6 @@ cython_debug/
 
 # Vector DB
 vector_db/
+
+# Pleasanter
+pleasanter/
